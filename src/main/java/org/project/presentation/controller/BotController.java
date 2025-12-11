@@ -2,9 +2,11 @@ package org.project.presentation.controller;
 
 import org.project.TgBotConfig;
 import org.project.model.calculate.Resolver;
+import org.project.model.db.DatabaseManager;
 import org.project.model.parser.CsvParser;
 import org.project.presentation.service.BotService;
 
+import org.project.view.graph.CreateGraph;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
@@ -16,6 +18,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -70,9 +73,9 @@ public class BotController extends TelegramLongPollingBot {
                 if (message.hasText()) {
                     handleMessage(message);
                 } else if (message.hasDocument()) {
-                    handleDocument(message);
+                    handleCSV(message);
                 } else {
-                    telegramService.sendMessage(chatId, "Пожалуйста, отправьте CSV-файл или используйте меню.");
+                    telegramService.sendMessage(chatId, "Отправьте CSV-файл");
                 }
             }
         } catch (Exception e) {
@@ -80,7 +83,7 @@ public class BotController extends TelegramLongPollingBot {
         }
     }
 
-    private void handleMessage(Message message) {
+    private void handleMessage(Message message) throws SQLException {
         String messageText = message.getText();
         Long chatId = message.getChatId();
 
@@ -107,12 +110,18 @@ public class BotController extends TelegramLongPollingBot {
         telegramService.sendMessageWithKeyboard(chatId, text, KeyboardFactory.createMainMenuKeyboard());
     }
 
-    private void teamWithHighestAverageAge(Long chatId) {
+    private void teamWithHighestAverageAge(Long chatId) throws SQLException {
+        if (!checkExistDB(chatId)) {
+            return;
+        }
         String text = resolver.getTeamWithHighestAverageAge();
         telegramService.sendMessage(chatId, text);
     }
 
-    private void HighestPlayer(Long chatId) {
+    private void HighestPlayer(Long chatId) throws SQLException {
+        if (!checkExistDB(chatId)) {
+            return;
+        }
         var players = resolver.calculate5HighestPlayer();
         String namesPlayers = players.stream()
                 .map(player -> player.name() + " - height " + player.height() + " inches")
@@ -120,7 +129,7 @@ public class BotController extends TelegramLongPollingBot {
         telegramService.sendMessage(chatId, namesPlayers);
     }
 
-    private void handleDocument(Message message) {
+    private void handleCSV(Message message) {
         Document document = message.getDocument();
         Long chatId = message.getChatId();
 
@@ -154,21 +163,28 @@ public class BotController extends TelegramLongPollingBot {
         }
     }
 
-    private void getAverageAgeImage(Long chatId) {
-        String relativePath = "data/averageAge.png";
+    private void getAverageAgeImage(Long chatId) throws SQLException {
+        if (!checkExistDB(chatId)) {
+            return;
+        }
+
+        String path = "data/averageAge.png";
+        Path imagePath = Path.of(path).toAbsolutePath();
+
         try {
-            Path imagePath = Path.of(relativePath).toAbsolutePath();
             if (!Files.exists(imagePath)) {
-                telegramService.sendMessage(chatId, "Файл не найден: " + imagePath);
-                return;
+                CreateGraph.takeGraph(resolver.calculateAverageAge());
             }
 
-            SendPhoto sendPhoto = SendPhoto.builder()
-                    .chatId(chatId.toString())
-                    .photo(new InputFile(imagePath.toFile(), "averageAge.png"))
-                    .build();
-
-            this.execute(sendPhoto);
+            if (Files.exists(imagePath) && Files.size(imagePath) > 0) {
+                SendPhoto sendPhoto = SendPhoto.builder()
+                        .chatId(chatId.toString())
+                        .photo(new InputFile(imagePath.toFile(), "averageAge.png"))
+                        .build();
+                this.execute(sendPhoto);
+            } else {
+                telegramService.sendMessage(chatId, "Не удалось создать изображение");
+            }
         } catch (Exception e) {
             e.printStackTrace();
             telegramService.sendMessage(chatId, "Ошибка при отправке изображения");
@@ -178,5 +194,29 @@ public class BotController extends TelegramLongPollingBot {
     private void sendUnknownCommand(Long chatId) {
         String text = "Неизвестная команда";
         telegramService.sendMessage(chatId, text);
+    }
+
+    private boolean checkExistDB(Long chatId) throws SQLException {
+        if (DatabaseManager.isPlayersTableEmpty()){
+             telegramService.sendMessage(chatId, "Загрузите файл");
+             return false;
+        } return true;
+    }
+
+
+    private boolean waitForFile(Path path, long timeoutMs) throws IOException {
+        long startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startTime < timeoutMs) {
+            if (Files.exists(path) && Files.size(path) > 0) {
+                return true;
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return false;
     }
 }
