@@ -71,7 +71,7 @@ public class Resolver implements IResolver {
         String maxAverageAgeTeam = getHighestTeam();
 
         return players.stream()
-                .filter(player -> player.team().equals(maxAverageAgeTeam))
+                .filter(player -> player.team() != null && player.team().equals(maxAverageAgeTeam))
                 .sorted(Comparator.comparingDouble(Player::age).reversed())
                 .limit(5)
                 .toList();

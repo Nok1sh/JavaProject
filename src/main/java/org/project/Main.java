@@ -15,9 +15,10 @@ public class Main {
 
     public static void main(String[] args) throws IOException, SQLException {
         databaseManager.init();
-        new CsvParser("table.csv").parseCsv();
+        new CsvParser("data/table.csv").parseCsv();
         Resolver resolver = new Resolver();
 //        CreateGraph.takeGraph(resolver.calculateAverageAge());
+        System.out.println(resolver.calculate5HighestPlayer());
         System.out.println(resolver.getTeamWithHighestAverageAge());
         System.out.println(resolver.calculateAverageHeight());
         System.out.println(resolver.calculateAverageWeight());
