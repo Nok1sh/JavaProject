@@ -15,6 +15,16 @@ public class TeamsEntity {
     public TeamsEntity(String team) {
         this.team = team;
     }
+    
+    public TeamsEntity() {}
+
+    public String getTeam() {
+        return team;
+    }
+
+    public void setTeam(String team) {
+        this.team = team;
+    }
 
     @Override
     public String toString() {

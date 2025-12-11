@@ -2,6 +2,8 @@ package org.project.model.parser;
 
 import org.project.model.db.DatabaseManager;
 import org.project.model.db.entities.PlayersEntity;
+import org.project.model.db.entities.PositionsEntity;
+import org.project.model.db.entities.TeamsEntity;
 import org.project.model.player.Player;
 import org.project.model.player.Position;
 
@@ -47,14 +49,40 @@ public class CsvParser {
 
     private static PlayersEntity parseLine(String line) {
         var row = line.split(",");
-        return new PlayersEntity(
-                row[0],
-                row[1].trim().replaceAll("[\" ]+", ""),
-                Position.valueOf(row[2].trim().replaceAll("[\" ]+", "")),
-                Integer.parseInt(row[3]),
-                Integer.parseInt(row[4]),
-                Double.parseDouble(row[5])
-        );
+        String teamName = row[1].trim().replaceAll("[\" ]+", "");
+        String positionName = row[2].trim().replaceAll("[\" ]+", "");
+        
+        try {
+            TeamsEntity teamEntity = DatabaseManager.getTeamsDao().queryBuilder()
+                    .where().eq("team", teamName).query().stream().findFirst()
+                    .orElse(null);
+            
+            if (teamEntity == null) {
+                teamEntity = new TeamsEntity(teamName);
+                DatabaseManager.saveTeams(teamName);
+            }
+            
+            PositionsEntity positionEntity = DatabaseManager.getPositionsDao().queryBuilder()
+                    .where().eq("position", Position.valueOf(positionName)).query().stream().findFirst()
+                    .orElse(null);
+            
+            if (positionEntity == null) {
+                positionEntity = new PositionsEntity(Position.valueOf(positionName));
+                DatabaseManager.savePositions(Position.valueOf(positionName));
+            }
+            
+            return new PlayersEntity(
+                    row[0],
+                    teamEntity,
+                    positionEntity,
+                    Integer.parseInt(row[3]),
+                    Integer.parseInt(row[4]),
+                    Double.parseDouble(row[5])
+            );
+            
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при сохранении игрока", e);
+        }
 //        return new Player(
 //                row[0],
 //                row[1].trim().replaceAll("[\" ]+", ""),

@@ -1,10 +1,8 @@
 package org.project.model.calculate;
 
 import org.project.model.db.DatabaseManager;
-import org.project.model.parser.CsvParser;
 import org.project.model.player.Player;
 
-import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Comparator;
 import java.util.List;
@@ -22,6 +20,7 @@ public class Resolver implements IResolver {
     @Override
     public Map<String, Double> calculateAverageAge() {
         return players.stream()
+                .filter(player -> player.team() != null)
                 .collect(Collectors.groupingBy(
                         Player::team,
                         Collectors.collectingAndThen(
@@ -34,6 +33,7 @@ public class Resolver implements IResolver {
     @Override
     public Map<String, Double> calculateAverageHeight() {
         return players.stream()
+                .filter(player -> player.team() != null)
                 .collect(Collectors.groupingBy(
                         Player::team,
                         Collectors.collectingAndThen(
@@ -46,6 +46,7 @@ public class Resolver implements IResolver {
     @Override
     public Map<String, Double> calculateAverageWeight() {
         return players.stream()
+                .filter(player -> player.team() != null)
                 .collect(Collectors.groupingBy(
                         Player::team,
                         Collectors.collectingAndThen(
@@ -61,7 +62,8 @@ public class Resolver implements IResolver {
                 .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
                 .limit(1)
                 .map(Map.Entry::getKey)
-                .collect(Collectors.joining());
+                .findFirst()
+                .orElse(null);
     }
 
     @Override
