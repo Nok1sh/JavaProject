@@ -2,9 +2,6 @@ package org.project;
 
 
 import org.project.model.calculate.Resolver;
-import org.project.model.db.DatabaseManager;
-import org.project.model.parser.CsvParser;
-import org.project.view.graph.CreateGraph;
 
 import java.io.IOException;
 import java.sql.SQLException;

@@ -1,51 +1,28 @@
 package org.project.presentation.controller;
 
 import org.project.TgBotConfig;
-import org.project.model.calculate.Resolver;
-import org.project.model.db.DatabaseManager;
-import org.project.model.parser.CsvParser;
+import org.project.presentation.presenter.Presenter;
+import org.project.presentation.view.BotView;
 import org.project.presentation.service.BotService;
-
-import org.project.view.graph.CreateGraph;
+import org.project.presentation.view.keyboard.KeyboardFactory;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
-import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
-import org.telegram.telegrambots.meta.api.objects.Message;
-import org.telegram.telegrambots.meta.api.objects.Document;
-import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.*;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
-import java.nio.file.Path;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.net.URL;
-import java.io.InputStream;
-import java.sql.SQLException;
-
-
-public class BotController extends TelegramLongPollingBot {
+public class BotController extends TelegramLongPollingBot implements BotView {
 
     private final String botToken = TgBotConfig.getBotToken();
     private final String botUsername = TgBotConfig.getBotUsername();
     private final BotService telegramService;
-    private final Object fileLock = new Object();
-    private final Object graphLock = new Object();
-    private static final Path DATA_DIR = Path.of("data").toAbsolutePath();
-    private Resolver resolver = new Resolver();
+    private final Presenter presenter;
 
-    static {
-        try {
-            Files.createDirectories(DATA_DIR);
-        } catch (Exception e) {
-            throw new RuntimeException("Не удалось создать папку 'data'", e);
-        }
-    }
-
-    public BotController() throws SQLException {
+    public BotController() throws Exception {
         this.telegramService = new BotService(this);
+        this.presenter = new Presenter(this);
     }
 
     public void start() throws TelegramApiException {
@@ -72,11 +49,28 @@ public class BotController extends TelegramLongPollingBot {
                 Long chatId = message.getChatId();
 
                 if (message.hasText()) {
-                    handleMessage(message);
+                    String text = message.getText();
+                    switch (text) {
+                        case "/start":
+                            presenter.start(chatId);
+                            break;
+                        case "График среднего возраста":
+                            presenter.averageAgeGraphTeam(chatId);
+                            break;
+                        case "5 самых высоких игроков, самой возрастной команды":
+                            presenter.highestPlayers(chatId);
+                            break;
+                        case "Команда с самым высоким средним возрастом при условиях":
+                            presenter.teamWithHighestAverageAge(chatId);
+                            break;
+                        default:
+                            showUnknownCommand(chatId);
+                            break;
+                    }
                 } else if (message.hasDocument()) {
-                    handleCSV(message);
+                    handleDocument(message, chatId);
                 } else {
-                    telegramService.sendMessage(chatId, "Отправьте CSV-файл");
+                    showTextMessage(chatId, "Отправьте CSV-файл или выберите команду");
                 }
             }
         } catch (Exception e) {
@@ -84,137 +78,69 @@ public class BotController extends TelegramLongPollingBot {
         }
     }
 
-    private void handleMessage(Message message) throws SQLException {
-        String messageText = message.getText();
-        Long chatId = message.getChatId();
-
-        switch (messageText) {
-            case "/start":
-                sendWelcomeMessage(chatId);
-                break;
-            case "График среднего возраста":
-                getAverageAgeImage(chatId);
-                break;
-            case "5 самых высоких игроков, самой возрастной команды":
-                HighestPlayer(chatId);
-                break;
-            case "Команда с самым высоким средним возрастом при условиях":
-                teamWithHighestAverageAge(chatId);
-                break;
-            default:
-                sendUnknownCommand(chatId);
-        }
-    }
-
-    private void sendWelcomeMessage(Long chatId) {
-        String text = " Привет, я телеграм-бот (всего лишь проект)\n Умею работать с CSV файлами (но только с одним)\n Загрузите CSV файл, если до этого он не был загружен";
+    @Override
+    public void showWelcomeMessage(Long chatId) {
+        String text = "Привет, я телеграм-бот (всего лишь проект)\nУмею работать с CSV файлами\nЗагрузите CSV файл, если до этого он не был загружен";
         telegramService.sendMessageWithKeyboard(chatId, text, KeyboardFactory.createMainMenuKeyboard());
     }
 
-    private void teamWithHighestAverageAge(Long chatId) throws SQLException {
-        if (!checkExistDB(chatId)) {
-            return;
-        }
-        String text = resolver.getTeamWithHighestAverageAge();
+    @Override
+    public void showUnknownCommand(Long chatId) {
+        telegramService.sendMessage(chatId, "Неизвестная команда");
+    }
+
+    @Override
+    public void showFileRequired(Long chatId) {
+        telegramService.sendMessage(chatId, "Загрузите CSV файл");
+    }
+
+    @Override
+    public void showFileSaved(Long chatId) {
+        telegramService.sendMessage(chatId, "Файл сохранён");
+    }
+
+    @Override
+    public void showFileError(Long chatId) {
+        telegramService.sendMessage(chatId, "Ошибка при сохранении файла");
+    }
+
+    @Override
+    public void showTextMessage(Long chatId, String text) {
         telegramService.sendMessage(chatId, text);
     }
 
-    private void HighestPlayer(Long chatId) throws SQLException {
-        if (!checkExistDB(chatId)) {
-            return;
-        }
-        var players = resolver.calculate5HighestPlayer();
-        String namesPlayers = players.stream()
-                .map(player -> player.name() + " - height " + player.height() + " inches")
-                .reduce("", (a, b) -> a + "\n" + b);
-        telegramService.sendMessage(chatId, namesPlayers);
-    }
-
-    private void handleCSV(Message message) {
-        synchronized (fileLock) {
-            Document document = message.getDocument();
-            Long chatId = message.getChatId();
-
-            String fileName = document.getFileName();
-            if (fileName == null || !fileName.toLowerCase().endsWith(".csv")) {
-                telegramService.sendMessage(chatId, "Отправьте файл с расширением .csv");
-                return;
-            }
-
-            try {
-                String fileId = document.getFileId();
-
-                org.telegram.telegrambots.meta.api.objects.File fileMeta = execute(new GetFile(fileId));
-                String filePath = fileMeta.getFilePath();
-
-                URL fileUrl = new URL("https://api.telegram.org/file/bot" + getBotToken() + "/" + filePath);
-
-                Path localFile = DATA_DIR.resolve("table.csv");
-
-                try (InputStream in = fileUrl.openStream()) {
-                    Files.copy(in, localFile, StandardCopyOption.REPLACE_EXISTING);
-                }
-
-                telegramService.sendMessage(chatId, "Файл сохранён");
-
-                try {
-                    DatabaseManager.getPlayersDao().deleteBuilder().delete();
-                    DatabaseManager.getTeamsDao().deleteBuilder().delete();
-                    DatabaseManager.getPositionsDao().deleteBuilder().delete();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-
-                new CsvParser("data/table.csv").parseCsv();
-
-                this.resolver = new Resolver();
-
-            } catch (Exception e) {
-                telegramService.sendMessage(chatId, "Ошибка при сохранении файла");
-                e.printStackTrace();
-            }
-        }
-    }
-
-    private void getAverageAgeImage(Long chatId) throws SQLException {
-        if (!checkExistDB(chatId)) {
-            return;
-        }
-
-        String path = "data/averageAge.png";
-        Path imagePath = Path.of(path).toAbsolutePath();
-        synchronized (graphLock) {
-            if (!Files.exists(imagePath)) {
-                CreateGraph.takeGraph(resolver.calculateAverageAge());
-            }
-        }
-
+    @Override
+    public void showPhoto(Long chatId, String imagePath, String caption) {
+        SendPhoto sendPhoto = SendPhoto.builder()
+                .chatId(chatId.toString())
+                .photo(new InputFile(new java.io.File(imagePath)))
+                .caption(caption)
+                .build();
         try {
-            if (Files.exists(imagePath) && Files.size(imagePath) > 0) {
-                SendPhoto sendPhoto = SendPhoto.builder()
-                        .chatId(chatId.toString())
-                        .photo(new InputFile(imagePath.toFile(), "averageAge.png"))
-                        .build();
-                this.execute(sendPhoto);
-            } else {
-                telegramService.sendMessage(chatId, "Не удалось создать изображение");
-            }
-        } catch (Exception e) {
+            execute(sendPhoto);
+        } catch (TelegramApiException e) {
             e.printStackTrace();
             telegramService.sendMessage(chatId, "Ошибка при отправке изображения");
         }
     }
 
-    private void sendUnknownCommand(Long chatId) {
-        String text = "Неизвестная команда";
-        telegramService.sendMessage(chatId, text);
+    @Override
+    public void showMainMenu(Long chatId) {
+        telegramService.sendMessageWithKeyboard(chatId, "Выберите действие:", KeyboardFactory.createMainMenuKeyboard());
     }
 
-    private boolean checkExistDB(Long chatId) throws SQLException {
-        if (DatabaseManager.isPlayersTableEmpty()){
-             telegramService.sendMessage(chatId, "Загрузите файл");
-             return false;
-        } return true;
-    }
+    private void handleDocument(Message message, Long chatId) {
+        Document document = message.getDocument();
+        try {
+            GetFile getFile = new GetFile(document.getFileId());
+            org.telegram.telegrambots.meta.api.objects.File fileMeta = execute(getFile);
+            String filePath = fileMeta.getFilePath();
+            String fileUrl = "https://api.telegram.org/file/bot" + getBotToken() + "/" + filePath;
 
+            presenter.processCSVFile(chatId, document.getFileName(), fileUrl);
+        } catch (Exception e) {
+            showFileError(chatId);
+            e.printStackTrace();
+        }
+    }
 }
