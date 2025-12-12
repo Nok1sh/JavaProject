@@ -8,12 +8,10 @@ import java.sql.SQLException;
 
 public class TgBot {
 
-    private static final DatabaseManager databaseManager = new DatabaseManager();
 
     public static void main(String[] args) throws SQLException {
 
-        databaseManager.init();
-        
+
         try {
             BotController bot = new BotController();
             bot.start();

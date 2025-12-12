@@ -18,7 +18,6 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -32,6 +31,8 @@ public class BotController extends TelegramLongPollingBot {
     private final String botToken = TgBotConfig.getBotToken();
     private final String botUsername = TgBotConfig.getBotUsername();
     private final BotService telegramService;
+    private final Object fileLock = new Object();
+    private final Object graphLock = new Object();
     private static final Path DATA_DIR = Path.of("data").toAbsolutePath();
     private Resolver resolver = new Resolver();
 
@@ -130,36 +131,48 @@ public class BotController extends TelegramLongPollingBot {
     }
 
     private void handleCSV(Message message) {
-        Document document = message.getDocument();
-        Long chatId = message.getChatId();
+        synchronized (fileLock) {
+            Document document = message.getDocument();
+            Long chatId = message.getChatId();
 
-        String fileName = document.getFileName();
-        if (fileName == null || !fileName.toLowerCase().endsWith(".csv")) {
-            telegramService.sendMessage(chatId, "Отправьте файл с расширением .csv");
-            return;
-        }
-
-        try {
-            String fileId = document.getFileId();
-
-            org.telegram.telegrambots.meta.api.objects.File fileMeta = execute(new GetFile(fileId));
-            String filePath = fileMeta.getFilePath();
-
-            URL fileUrl = new URL("https://api.telegram.org/file/bot" + getBotToken() + "/" + filePath);
-
-            Path localFile = DATA_DIR.resolve("table.csv");
-
-            try (InputStream in = fileUrl.openStream()) {
-                Files.copy(in, localFile, StandardCopyOption.REPLACE_EXISTING);
+            String fileName = document.getFileName();
+            if (fileName == null || !fileName.toLowerCase().endsWith(".csv")) {
+                telegramService.sendMessage(chatId, "Отправьте файл с расширением .csv");
+                return;
             }
 
-            telegramService.sendMessage(chatId, "Файл сохранён");
+            try {
+                String fileId = document.getFileId();
 
-            new CsvParser("data/table.csv").parseCsv();
+                org.telegram.telegrambots.meta.api.objects.File fileMeta = execute(new GetFile(fileId));
+                String filePath = fileMeta.getFilePath();
 
-        } catch (Exception e) {
-            telegramService.sendMessage(chatId, "Ошибка при сохранении файла");
-            e.printStackTrace();
+                URL fileUrl = new URL("https://api.telegram.org/file/bot" + getBotToken() + "/" + filePath);
+
+                Path localFile = DATA_DIR.resolve("table.csv");
+
+                try (InputStream in = fileUrl.openStream()) {
+                    Files.copy(in, localFile, StandardCopyOption.REPLACE_EXISTING);
+                }
+
+                telegramService.sendMessage(chatId, "Файл сохранён");
+
+                try {
+                    DatabaseManager.getPlayersDao().deleteBuilder().delete();
+                    DatabaseManager.getTeamsDao().deleteBuilder().delete();
+                    DatabaseManager.getPositionsDao().deleteBuilder().delete();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+
+                new CsvParser("data/table.csv").parseCsv();
+
+                this.resolver = new Resolver();
+
+            } catch (Exception e) {
+                telegramService.sendMessage(chatId, "Ошибка при сохранении файла");
+                e.printStackTrace();
+            }
         }
     }
 
@@ -170,12 +183,13 @@ public class BotController extends TelegramLongPollingBot {
 
         String path = "data/averageAge.png";
         Path imagePath = Path.of(path).toAbsolutePath();
-
-        try {
+        synchronized (graphLock) {
             if (!Files.exists(imagePath)) {
                 CreateGraph.takeGraph(resolver.calculateAverageAge());
             }
+        }
 
+        try {
             if (Files.exists(imagePath) && Files.size(imagePath) > 0) {
                 SendPhoto sendPhoto = SendPhoto.builder()
                         .chatId(chatId.toString())
@@ -203,20 +217,4 @@ public class BotController extends TelegramLongPollingBot {
         } return true;
     }
 
-
-    private boolean waitForFile(Path path, long timeoutMs) throws IOException {
-        long startTime = System.currentTimeMillis();
-        while (System.currentTimeMillis() - startTime < timeoutMs) {
-            if (Files.exists(path) && Files.size(path) > 0) {
-                return true;
-            }
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return false;
-            }
-        }
-        return false;
-    }
 }

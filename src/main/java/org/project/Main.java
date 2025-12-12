@@ -11,11 +11,10 @@ import java.sql.SQLException;
 
 public class Main {
 
-    private static final DatabaseManager databaseManager = new DatabaseManager();
+//    private static final DatabaseManager databaseManager = new DatabaseManager();
 
     public static void main(String[] args) throws IOException, SQLException {
-        databaseManager.init();
-        new CsvParser("data/table.csv").parseCsv();
+//        new CsvParser("data/table.csv").parseCsv();
         Resolver resolver = new Resolver();
 //        CreateGraph.takeGraph(resolver.calculateAverageAge());
         System.out.println(resolver.calculate5HighestPlayer());

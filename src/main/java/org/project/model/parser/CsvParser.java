@@ -9,6 +9,7 @@ import org.project.model.player.Position;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.List;
@@ -30,7 +31,10 @@ public class CsvParser {
 //    }
 
     public void parseCsv() throws IOException, SQLException {
-        if (!DatabaseManager.isPlayersTableEmpty()){
+        String path = "data/table.csv";
+        Path csvPath = Path.of(path).toAbsolutePath();
+
+        if (!DatabaseManager.isPlayersTableEmpty() && !Files.exists(csvPath)){
             return;
         }
         System.out.println("Parsing csv...");

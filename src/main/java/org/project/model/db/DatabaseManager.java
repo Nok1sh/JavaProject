@@ -15,30 +15,34 @@ import java.sql.SQLException;
 import java.util.List;
 
 public class DatabaseManager {
-    private static final String DATABASE_PLAYERS_URL = "jdbc:sqlite:players.db";
-    private static final String DATABASE_TEAMS_URL = "jdbc:sqlite:teams.db";
-    private static final String DATABASE_POSITIONS_URL = "jdbc:sqlite:positions.db";
+    private static final String DATABASE_URL = "jdbc:sqlite:players_data.db";
 
     private static Dao<PlayersEntity, Integer> playersEntities;
     private static Dao<TeamsEntity, Integer> teamsEntities;
     private static Dao<PositionsEntity, Integer> positionsEntities;
 
-    public void init() throws SQLException {
-        ConnectionSource playersConnectionSource = new JdbcConnectionSource(DATABASE_PLAYERS_URL);
-        playersEntities = DaoManager.createDao(playersConnectionSource, PlayersEntity.class);
-        TableUtils.createTableIfNotExists(playersConnectionSource, PlayersEntity.class);
+    static {
+        try {
+            ConnectionSource connectionSource = new JdbcConnectionSource(DATABASE_URL);
+            playersEntities = DaoManager.createDao(connectionSource, PlayersEntity.class);
+            teamsEntities = DaoManager.createDao(connectionSource, TeamsEntity.class);
+            positionsEntities = DaoManager.createDao(connectionSource, PositionsEntity.class);
 
-        ConnectionSource teamsConnectionSource = new JdbcConnectionSource(DATABASE_TEAMS_URL);
-        teamsEntities = DaoManager.createDao(teamsConnectionSource, TeamsEntity.class);
-        TableUtils.createTableIfNotExists(teamsConnectionSource, TeamsEntity.class);
-
-        ConnectionSource positionsConnectionSource = new JdbcConnectionSource(DATABASE_POSITIONS_URL);
-        positionsEntities = DaoManager.createDao(positionsConnectionSource, PositionsEntity.class);
-        TableUtils.createTableIfNotExists(positionsConnectionSource, PositionsEntity.class);
+            // Создаём таблицы, если их нет
+            TableUtils.createTableIfNotExists(connectionSource, PlayersEntity.class);
+            TableUtils.createTableIfNotExists(connectionSource, TeamsEntity.class);
+            TableUtils.createTableIfNotExists(connectionSource, PositionsEntity.class);
+        } catch (SQLException e) {
+            throw new ExceptionInInitializerError("Ошибка инициализации БД: " + e.getMessage());
+        }
     }
 
     public static void savePlayers(PlayersEntity entity) throws SQLException {
         playersEntities.create(entity);
+    }
+
+    public static Dao<PlayersEntity, Integer> getPlayersDao() {
+        return playersEntities;
     }
 
     public static Dao<TeamsEntity, Integer> getTeamsDao() {
@@ -63,7 +67,7 @@ public class DatabaseManager {
 
     public static List<Player> getAllPlayers() throws SQLException {
         List<PlayersEntity> entities = playersEntities.queryForAll();
-        
+
         for (PlayersEntity entity : entities) {
             if (entity.getTeam() != null) {
                 teamsEntities.refresh(entity.getTeam());
@@ -72,7 +76,7 @@ public class DatabaseManager {
                 positionsEntities.refresh(entity.getPosition());
             }
         }
-        
+
         return entities.stream()
                 .map(entity -> new Player(
                         entity.getName(),
