@@ -1,8 +1,9 @@
 plugins {
     id 'java'
+    id 'application'
 }
 
-group = 'org.example'
+group = 'org.project'
 version = '1.0-SNAPSHOT'
 
 repositories {
@@ -20,8 +21,34 @@ dependencies {
     implementation 'com.j256.ormlite:ormlite-core:6.1'
     implementation 'com.j256.ormlite:ormlite-jdbc:6.1'
     implementation 'io.github.cdimascio:dotenv-java:3.2.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito:mockito-core:5.7.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
+}
+
+apply plugin: 'jacoco'
+
+tasks.withType(Test) {
+    finalizedBy jacocoTestReport
+}
+
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+jacocoTestReport {
+    dependsOn(test)
+    reports {
+        xml.required = false
+        csv.required = false
+        html.outputLocation = layout.buildDirectory.dir('jacocoHtml')
+    }
 }
 
 test {
     useJUnitPlatform()
+    finalizedBy(jacocoTestReport)
+    jvmArgs += '-javaagent:' + configurations.testRuntimeClasspath.files
+            .find { it.name.startsWith('byte-buddy-agent') }
+            ?.absolutePath
 }

@@ -1,5 +1,6 @@
 package org.project.presentation.presenter;
 
+import org.project.model.calculate.IResolver;
 import org.project.model.calculate.Resolver;
 import org.project.model.db.DatabaseManager;
 import org.project.model.parser.CsvParser;
@@ -15,7 +16,7 @@ import java.sql.SQLException;
 
 public class Presenter {
     private final BotView view;
-    private Resolver resolver;
+    private IResolver resolver;
     private static final Path DATA_DIR = Path.of("data").toAbsolutePath();
     private static final Path CSV_FILE = DATA_DIR.resolve("table.csv");
     private static final Path GRAPH_FILE = DATA_DIR.resolve("averageAge.png");
