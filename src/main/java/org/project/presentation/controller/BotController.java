@@ -60,7 +60,7 @@ public class BotController extends TelegramLongPollingBot implements BotView {
                         case "5 самых высоких игроков, самой возрастной команды":
                             presenter.highestPlayers(chatId);
                             break;
-                        case "Команда с самым высоким средним возрастом при условиях":
+                        case "Команда с самым высоким средним возрастом при определённых условиях":
                             presenter.teamWithHighestAverageAge(chatId);
                             break;
                         default:
