@@ -58,7 +58,11 @@ public class CsvParser {
         
         try {
             TeamsEntity teamEntity = DatabaseManager.getTeamsDao().queryBuilder()
-                    .where().eq("team", teamName).query().stream().findFirst()
+                    .where()
+                    .eq("team", teamName)
+                    .query()
+                    .stream()
+                    .findFirst()
                     .orElse(null);
             
             if (teamEntity == null) {
@@ -67,7 +71,10 @@ public class CsvParser {
             }
             
             PositionsEntity positionEntity = DatabaseManager.getPositionsDao().queryBuilder()
-                    .where().eq("position", Position.valueOf(positionName)).query().stream().findFirst()
+                    .where()
+                    .eq("position", Position.valueOf(positionName))
+                    .query().stream()
+                    .findFirst()
                     .orElse(null);
             
             if (positionEntity == null) {

@@ -23,7 +23,7 @@ public class KeyboardFactory {
         row2.add("5 самых высоких игроков, самой возрастной команды");
 
         KeyboardRow row3 = new KeyboardRow();
-        row3.add("Команда с самым высоким средним возрастом при условиях");
+        row3.add("Команда с самым высоким средним возрастом при определённых условиях");
 
         keyboard.add(row1);
         keyboard.add(row2);

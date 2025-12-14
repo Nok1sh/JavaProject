@@ -28,7 +28,6 @@ public class DatabaseManager {
             teamsEntities = DaoManager.createDao(connectionSource, TeamsEntity.class);
             positionsEntities = DaoManager.createDao(connectionSource, PositionsEntity.class);
 
-            // Создаём таблицы, если их нет
             TableUtils.createTableIfNotExists(connectionSource, PlayersEntity.class);
             TableUtils.createTableIfNotExists(connectionSource, TeamsEntity.class);
             TableUtils.createTableIfNotExists(connectionSource, PositionsEntity.class);
@@ -37,7 +36,7 @@ public class DatabaseManager {
         }
     }
 
-    public static void savePlayers(PlayersEntity entity) throws SQLException {
+    public static synchronized void savePlayers(PlayersEntity entity) throws SQLException {
         playersEntities.create(entity);
     }
 
@@ -53,19 +52,19 @@ public class DatabaseManager {
         return positionsEntities;
     }
 
-    public static boolean isPlayersTableEmpty() throws SQLException {
+    public static synchronized boolean isPlayersTableEmpty() throws SQLException {
         return playersEntities.countOf() == 0;
     }
 
-    public static void saveTeams(String name) throws SQLException {
+    public static synchronized void saveTeams(String name) throws SQLException {
         teamsEntities.create(new TeamsEntity(name));
     }
 
-    public static void savePositions(Position position) throws SQLException {
+    public static synchronized void savePositions(Position position) throws SQLException {
         positionsEntities.create(new PositionsEntity(position));
     }
 
-    public static List<Player> getAllPlayers() throws SQLException {
+    public static synchronized List<Player> getAllPlayers() throws SQLException {
         List<PlayersEntity> entities = playersEntities.queryForAll();
 
         for (PlayersEntity entity : entities) {

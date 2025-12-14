@@ -16,7 +16,7 @@ import java.sql.SQLException;
 
 public class Presenter {
     private final BotView view;
-    private IResolver resolver;
+    private volatile IResolver resolver;
     private static final Path DATA_DIR = Path.of("data").toAbsolutePath();
     private static final Path CSV_FILE = DATA_DIR.resolve("table.csv");
     private static final Path GRAPH_FILE = DATA_DIR.resolve("averageAge.png");
@@ -30,7 +30,7 @@ public class Presenter {
         view.showWelcomeMessage(chatId);
     }
 
-    public void averageAgeGraphTeam(Long chatId) throws IOException {
+    public synchronized void averageAgeGraphTeam(Long chatId) throws IOException {
         if (!checkDBExist()) {
             view.showFileRequired(chatId);
             return;
@@ -51,7 +51,7 @@ public class Presenter {
         }
     }
 
-    public void highestPlayers(Long chatId) {
+    public synchronized void highestPlayers(Long chatId) {
         if (!checkDBExist()) {
             view.showFileRequired(chatId);
             return;
@@ -63,16 +63,16 @@ public class Presenter {
         view.showTextMessage(chatId, namesPlayers);
     }
 
-    public void teamWithHighestAverageAge(Long chatId) {
+    public synchronized void teamWithHighestAverageAge(Long chatId) {
         if (!checkDBExist()) {
             view.showFileRequired(chatId);
             return;
         }
         String text = resolver.getTeamWithHighestAverageAge();
-        view.showTextMessage(chatId, text);
+        view.showTextMessage(chatId, "Команда " + text);
     }
 
-    public void processCSVFile(Long chatId, String fileName, String fileUrl) {
+    public synchronized void processCSVFile(Long chatId, String fileName, String fileUrl) {
         if (fileName == null || !fileName.toLowerCase().endsWith(".csv")) {
             view.showFileError(chatId);
             return;
