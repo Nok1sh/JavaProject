@@ -58,7 +58,7 @@ public class Presenter {
         }
         var players = resolver.calculate5HighestPlayer();
         String namesPlayers = players.stream()
-                .map(player -> player.name() + " - height " + player.height() + " inches")
+                .map(player -> player.name() + " - height " + player.height() + " inches. Team: " + player.team())
                 .reduce("", (a, b) -> a + "\n" + b);
         view.showTextMessage(chatId, namesPlayers);
     }

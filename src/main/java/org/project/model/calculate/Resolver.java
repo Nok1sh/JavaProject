@@ -72,7 +72,7 @@ public class Resolver implements IResolver {
 
         return players.stream()
                 .filter(player -> player.team() != null && player.team().equals(maxAverageAgeTeam))
-                .sorted(Comparator.comparingDouble(Player::age).reversed())
+                .sorted(Comparator.comparingDouble(Player::height).reversed())
                 .limit(5)
                 .toList();
     }

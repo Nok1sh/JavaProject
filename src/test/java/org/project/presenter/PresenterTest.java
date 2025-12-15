@@ -56,17 +56,17 @@ public class PresenterTest {
         when(resolver.calculate5HighestPlayer()).thenReturn(topPlayers);
         presenter.highestPlayers(12345L);
         String expectedMessage = "\n" +
-                               "Mike Mussina - height 74 inches\n" +
-                               "Mike Myers - height 75 inches\n" +
-                               "Mariano Rivera - height 74 inches\n" +
-                               "Jason Giambi - height 75 inches\n" +
-                               "Andy Pettitte - height 77 inches";
+                "T.J. Beam - height 79 inches. Team: NYY\n" +
+        "Humberto Sanchez - height 78 inches. Team: NYY\n" +
+        "Carl Pavano - height 77 inches. Team: NYY\n" +
+        "Andy Pettitte - height 77 inches. Team: NYY\n"+
+        "Jose Veras - height 77 inches. Team: NYY";
         verify(view).showTextMessage(eq(12345L), eq(expectedMessage));
     }
 
     @Test
     void teamWithHighestAverageAge_CallsViewWithCorrectData() {
-        String bestTeam = "NYY";
+        String bestTeam = "Команда NYY";
         when(resolver.getTeamWithHighestAverageAge()).thenReturn(bestTeam);
         presenter.teamWithHighestAverageAge(12345L);
         verify(view).showTextMessage(eq(12345L), eq(bestTeam));
